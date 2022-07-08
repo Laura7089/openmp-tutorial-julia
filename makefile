@@ -6,7 +6,10 @@
 
 include make.def
 
-EXES= pi$(EXE) jac_solv$(EXE) vadd$(EXE) vadd_heap$(EXE) heat$(EXE) heat_map$(EXE)
+EXES= pi$(EXE) jac_solv$(EXE) vadd$(EXE) vadd_heap$(EXE)
+
+# TODO: heat and heat_map don't seem to want to build with gnu
+# EXES= pi$(EXE) jac_solv$(EXE) vadd$(EXE) vadd_heap$(EXE) heat$(EXE) heat_map$(EXE)
 
 JAC_OBJS  = jac_solv.$(OBJ) mm_utils.$(OBJ)
 

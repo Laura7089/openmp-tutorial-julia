@@ -1,13 +1,13 @@
-# for the Cray compiler (cce)
+# for g++ compiler on Linux
 # copy to make.def
-CC          = cc
+CC          = g++
 CLINKER     = $(CC)
-OPTFLAGS    = -O3 -fopenmp -fopenmp-targets=nvptx64 --cuda-path=/cm/shared/apps/cuda10.2/toolkit/10.2.89 -Xopenmp-target -march=sm_70
-LIBS        =
+OPTFLAGS    = -fopenmp -O3 -fpermissive
+LIBS        = -lm
 PRE         = ./
 
-CFLAGS    = $(OPTFLAGS)
+CFLAGS	  = $(OPTFLAGS)
 
 OBJ=o
 EXE=
-RM=rm -f
+RM=rm
