@@ -64,12 +64,12 @@ function jacobisolve!(xnew, xold, A, b)
             @inbounds xnew[i] = 0.0
             for j = 1:length(xnew)
                 if i != j
-                    @inbounds xnew[i] += A[i, j] * xold[j]
+                    @inbounds xnew[i] += A[j, i] * xold[j]
                 end
             end
             # xnew[i] = sum(A[i,j] * xold[i] for j in 1:ndim if j != i)
         end
-        @inbounds xnew[:] = (b - xnew) ./ A[diagind(A)]
+        @inbounds xnew[:] = (b .- xnew) ./ A[diagind(A)]
 
         # test convergence
         conv = sqrt(sum((xnew .- xold) .^ 2))
@@ -79,7 +79,7 @@ function jacobisolve!(xnew, xold, A, b)
     @info "Jacobi solve done" conv iters
 end
 
-function main(ndim = DEF_SIZE, verbose = false)
+function jacsolv(ndim = DEF_SIZE)
     A = nearident(ndim)
     @debug A
 
