@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <omp.h>
+#include <cstdlib>
 #define N 100000
 #define TOL  0.0000001
 //
@@ -17,31 +18,31 @@ int main()
     float *res = malloc(sizeof(float) * N);
     int err=0;
 
-   // fill the arrays
-   for (int i=0; i<N; i++){
-      a[i] = (float)i;
-      b[i] = 2.0*(float)i;
-      c[i] = 0.0;
-      res[i] = i + 2*i;
-   }
+    // fill the arrays
+    for (int i=0; i<N; i++) {
+        a[i] = (float)i;
+        b[i] = 2.0*(float)i;
+        c[i] = 0.0;
+        res[i] = i + 2*i;
+    }
 
-   // add two vectors
-   for (int i=0; i<N; i++){
-      c[i] = a[i] + b[i];
-   }
+    // add two vectors
+    for (int i=0; i<N; i++) {
+        c[i] = a[i] + b[i];
+    }
 
-   // test results
-   for(int i=0;i<N;i++){
-      float val = c[i] - res[i];
-      val = val*val;
-      if(val>TOL) err++;
-   }
-   printf(" vectors added with %d errors\n",err);
+    // test results
+    for(int i=0; i<N; i++) {
+        float val = c[i] - res[i];
+        val = val*val;
+        if(val>TOL) err++;
+    }
+    printf(" vectors added with %d errors\n",err);
 
-   free(a);
-   free(b);
-   free(c);
-   free(res);
+    free(a);
+    free(b);
+    free(c);
+    free(res);
 
-   return 0;
+    return 0;
 }
