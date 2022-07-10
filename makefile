@@ -6,10 +6,10 @@
 
 include make.def
 
-EXES= pi$(EXE) jac_solv$(EXE) vadd$(EXE) vadd_heap$(EXE)
+EXES= pi$(EXE) jac_solv$(EXE)
 
-# TODO: heat and heat_map don't seem to want to build with gnu
-# EXES= pi$(EXE) jac_solv$(EXE) vadd$(EXE) vadd_heap$(EXE) heat$(EXE) heat_map$(EXE)
+# TODO: heat doesn't seem to want to build with gnu
+# EXES= pi$(EXE) jac_solv$(EXE) heat$(EXE)
 
 JAC_OBJS  = jac_solv.$(OBJ) mm_utils.$(OBJ)
 
@@ -21,17 +21,8 @@ jac_solv$(EXE): $(JAC_OBJS) mm_utils.h
 pi$(EXE): pi.$(OBJ)
 	$(CLINKER) $(OPTFLAGS) -o pi$(EXE) pi.$(OBJ) $(LIBS)
 
-vadd$(EXE): vadd.$(OBJ)
-	$(CLINKER) $(OPTFLAGS) -o vadd$(EXE) vadd.$(OBJ) $(LIBS)
-
-vadd_heap$(EXE): vadd_heap.$(OBJ)
-	$(CLINKER) $(OPTFLAGS) -o vadd_heap$(EXE) vadd_heap.$(OBJ) $(LIBS)
-
 heat$(EXE): heat.$(OBJ)
 	$(CLINKER) $(OPTFLAGS) -o heat$(EXE) heat.$(OBJ) $(LIBS)
-
-heat_map$(EXE): heat_map.$(OBJ)
-	$(CLINKER) $(OPTFLAGS) -o heat_map$(EXE) heat_map.$(OBJ) $(LIBS)
 
 test: $(EXES)
 	for i in $(EXES); do \
