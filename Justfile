@@ -53,7 +53,7 @@ lab_ssh *cmd="":
     sshpass -e ssh "{{ YORK_USER }}@{{ LAB_MACHINE_ADDR }}" '{{ cmd }}'
 
 # Upload a demo to a lab machine
-lab_upload demo: (clean demo) (_lab_rsync demo LAB_DEST "-I")
+lab_upload demo: (_lab_rsync demo LAB_DEST "-I")
 
 # Run a demo on a lab machine
 lab_run demo *args="": (lab_upload demo)
@@ -61,7 +61,7 @@ lab_run demo *args="": (lab_upload demo)
         'cd "{{ join(LAB_DEST, demo) }}" \
         && make clean \
         && make \
-        && {{ MAXWELL_CMD }} {{ args }}'
+        && just {{ demo }} {{ args }}'
 
 lab_script *args="":
     #!/bin/bash
@@ -104,7 +104,7 @@ viking_run demo *args="":
         -D 'extra_opts={{ VIKING_SLURM_ARGS }}' \
         -D 'mem={{ VIKING_MEMORY }}' \
         -D build_cmd='(cd {{ demo }} && make)' \
-        -D run_cmd='(cd {{ demo }} && {{ MAXWELL_CMD }} {{ args }})'
+        -D run_cmd='(cd {{ demo }} && just {{ demo }} {{ args }})'
     # cat "{{ VIKING_UPSTREAM_NAME }}/run_{{ demo }}.job"
     chmod +x "{{ VIKING_UPSTREAM_NAME }}/run_{{ demo }}.job"
     just _viking_rsync_to "{{ VIKING_UPSTREAM_NAME }}" "scratch"
@@ -113,14 +113,15 @@ viking_run demo *args="":
         sbatch ./run_{{ demo }}.job'
     @printf "\n==================================================\nViking job run in directory $(basename {{ VIKING_UPSTREAM_NAME }})\n\n"
 
+# TODO: adapt me
 # Helper for viking_run for openmp
-viking_run_openmp cpus="20" *args="":
-    just \
-        'VIKING_UPSTREAM_NAME={{ VIKING_UPSTREAM_NAME }}' \
-        VIKING_JOB_TIME={{ VIKING_JOB_TIME }} \
-        VIKING_CPUS_PT={{ cpus }} \
-        MAXWELL_CMD="OMP_NUM_THREADS={{ cpus }} {{ MAXWELL_CMD }}" \
-        viking_run "openmp" {{ args }}
+# viking_run_openmp cpus="20" *args="":
+#     just \
+#         'VIKING_UPSTREAM_NAME={{ VIKING_UPSTREAM_NAME }}' \
+#         VIKING_JOB_TIME={{ VIKING_JOB_TIME }} \
+#         VIKING_CPUS_PT={{ cpus }} \
+#         MAXWELL_CMD="OMP_NUM_THREADS={{ cpus }} {{ MAXWELL_CMD }}" \
+#         viking_run "openmp" {{ args }}
 
 # Helper for viking_run for cuda
 viking_run_cuda *args="":
@@ -134,13 +135,13 @@ viking_run_cuda *args="":
         viking_run "cuda" {{ args }}
 
 # Helper for viking_run for mpi
-viking_run_mpi tasks="9" *args="":
-    just \
-        'VIKING_UPSTREAM_NAME={{ VIKING_UPSTREAM_NAME }}' \
-        MAXWELL_CMD="mpirun -n {{ tasks }}" \
-        VIKING_JOB_TIME={{ VIKING_JOB_TIME }} \
-        VIKING_MODULE=mpi/OpenMPI/4.1.1-GCC-11.2.0 \
-        viking_run "mpi" {{ tasks }} "1" {{ args }}
+# viking_run_mpi tasks="9" *args="":
+#     just \
+#         'VIKING_UPSTREAM_NAME={{ VIKING_UPSTREAM_NAME }}' \
+#         MAXWELL_CMD="mpirun -n {{ tasks }}" \
+#         VIKING_JOB_TIME={{ VIKING_JOB_TIME }} \
+#         VIKING_MODULE=mpi/OpenMPI/4.1.1-GCC-11.2.0 \
+#         viking_run "mpi" {{ tasks }} "1" {{ args }}
 
 # View the viking job queue
 viking_queue: (viking_ssh "squeue -u " + YORK_USER)
