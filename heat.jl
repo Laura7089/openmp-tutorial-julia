@@ -123,8 +123,8 @@ Matrix of true answers given by the manufactured solution
 """
 function mask((xₘ, yₘ), t, α, dx)
     modi = pi * dx / LENGTH
-    xs = sin.((1:xₘ-1) .* modi)
-    ys = sin.((1:yₘ-1) .* modi)
+    xs = (1:xₘ-1) .* modi
+    ys = (1:yₘ-1) .* modi
     Mₚ = Iterators.product(xs, ys)
     M₀ = zeros(xₘ, yₘ)
 
