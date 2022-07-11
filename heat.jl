@@ -28,21 +28,22 @@
 #          Ported by Laura Demkowicz-Duffy, Jul 2022
 #
 
-const LINE = "--------------------\n" # A line for fancy output
+import LinearAlgebra: norm
+
 const LENGTH = 1000
 
 function main(n = 1000, nsteps = 10)
     # Set problem definition
-    alpha = 0.1          # heat equation coefficient
+    α = 0.1          # heat equation coefficient
     dx = LENGTH / (n + 1)  # physical size of each cell (+1 as don't simulate boundaries as they are given)
     dt = 0.5 / nsteps    # time interval (total time of 0.5s)
 
     # Print message detailing runtime configuration
     totaltime = dt * nsteps
-    @info "MMS heat equation starting..." (n, n) dx (LENGTH, LENGTH) alpha nsteps totaltime dt
+    @info "MMS heat equation starting..." (n, n) dx (LENGTH, LENGTH) α nsteps totaltime dt
 
     # Stability requires that dt/(dx^2) <= 0.5
-    r = alpha * dt / dx^2
+    r = α * dt / dx^2
     if (r > 0.5)
         @warn "Stability: unstable" r
     end
@@ -60,16 +61,19 @@ function main(n = 1000, nsteps = 10)
         # Call the solve kernel
         # Computes u_tmp at the next timestep
         # given the value of u at the current timestep
-        solve!(u_tmp, alpha, dx, dt, u)
+        solve!(u_tmp, α, dx, dt, u)
         u, u_tmp = u_tmp, u
     end
 
     # Check the L2-norm of the computed solution
     # against the *known* solution from the MMS scheme
-    norm = l2norm(u, nsteps, dt, alpha, dx)
+    @time begin
+        themask = mask(size(u), dt * nsteps, α, dx)
+        l2norm = norm(u .- themask)
+    end
 
     # Print results
-    @info "Done" norm
+    @info "Done" l2norm
 end
 
 
@@ -88,9 +92,9 @@ end
 """
 Compute the next timestep, given the current timestep
 """
-function solve!(u_tmp, alpha, dx, dt, u)
+function solve!(u_tmp, α, dx, dt, u)
     # Finite difference constant multiplier
-    r = alpha * dt / dx^2
+    r = α * dt / dx^2
     r2 = 1 - 4r
 
     xmax = size(u_tmp)[1]
@@ -103,44 +107,30 @@ function solve!(u_tmp, alpha, dx, dt, u)
             # Boundaries are zero because the MMS solution is zero there.
             u_tmp[i, j] =
                 r2 * u[i, j] +
-                r * (i < xmax ? u[i+1, j] : 0.0) +
-                r * (i > 1 ? u[i-1, j] : 0.0) +
-                r * (j < ymax ? u[i, j+1] : 0.0) +
-                r * (j > 1 ? u[i, j-1] : 0.0)
+                r * (
+                    (i < xmax ? u[i+1, j] : 0.0) +
+                    (i > 1 ? u[i-1, j] : 0.0) +
+                    (j < ymax ? u[i, j+1] : 0.0) +
+                    (j > 1 ? u[i, j-1] : 0.0)
+                )
         end
     end
 end
 
 
 """
-True answer given by the manufactured solution
+Matrix of true answers given by the manufactured solution
 """
-solution(t, x, y, alpha) =
-    exp(-2alpha * (pi^2) * t / (LENGTH^2)) * sin(pi * x / LENGTH) * sin(pi * y / LENGTH)
+function mask((xₘ, yₘ), t, α, dx)
+    modi = pi * dx / LENGTH
+    xs = sin.((1:xₘ-1) .* modi)
+    ys = sin.((1:yₘ-1) .* modi)
+    Mₚ = Iterators.product(xs, ys)
+    M₀ = zeros(xₘ, yₘ)
 
+    multiplier = exp(-2α * pi^2 * t / (LENGTH^2))
+    gen((x, y)) = multiplier * sin(x) * sin(y)
 
-"""
-Computes the L2-norm of the computed grid and the MMS known solution
-The known solution is the same as the boundary function.
-"""
-function l2norm(u, nsteps, dt, alpha, dx)
-    # Final (real) time simulated
-    time = dt * nsteps
-    # L2-norm error
-    l2norm = 0.0
-
-    # Loop over the grid and compute difference of computed and known solutions as an L2-norm
-    # xs = (1:size(u)[1]) .* dx
-    # ys = (1:size(u)[2]) .* dx
-    # test = solution.(time, x, y, alpha)
-    test = ((solution(time, x, y, alpha) for x in xs) for y in ys)
-    @info size(collect(test))
-    for j = 2:size(u)[2]
-        for i = 2:size(u)[1]
-            answer = solution(time, dx*(i-1), dx*(j-1), alpha)
-            l2norm += (u[i, j] - answer)^2
-        end
-    end
-
-    return sqrt(l2norm)
+    M₀[2:xₘ, 2:yₘ] = map(gen, Mₚ)
+    return M₀
 end
