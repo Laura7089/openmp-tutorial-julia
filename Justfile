@@ -25,10 +25,7 @@ export SSHPASS := env_var("YORK_PASS")
 
 # Get an interactive shell with the package imported
 interactive:
-    julia -i <( echo '\
-        using Revise, JuliaFormatter, Pkg; \
-        fa() = format("."); \
-    ')
+    julia -i ./.interactive.jl
 
 # Run a default entrypoint, then again to avoid compilation time
 run demo="heat.jl":
