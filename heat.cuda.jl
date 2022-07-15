@@ -47,7 +47,7 @@ function main(n = 1000, nsteps = 10, α = 0.1, δx = LENGTH / (n + 1), δt = 0.5
     end
 
     u = initial_value((n, n), δx) |> CuArray
-    u_tmp = Array{Float64}(undef, (n, n))
+    u_tmp = CuArray{Float64}(undef, (n, n))
 
     # Run through timesteps under the explicit scheme
     B = CUDA.zeros(n, n) # temporary allocation
