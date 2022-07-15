@@ -6,9 +6,7 @@ DEMOS := "heat.jl pi.jl heat.cuda.jl jacsolv.jl"
 
 # Viking-related folders and files
 VIKING_TEMPLATE := "./viking_run.sh.j2"
-VIKING_UPSTREAM_NAME := `mktemp -p /tmp -du juliaXXX`
-VIKING_BENCH_DIR := "~/scratch/julia_benches"
-VIKING_BENCH_RESULTS_DIR := `mktemp -p /tmp -du juliabenchXXX`
+VIKING_UPSTREAM_NAME := `mktemp -du juliaXXX`
 
 # Default viking run configuration
 VIKING_MODULE := "lang/Julia/1.7.1-linux-x86_64"
