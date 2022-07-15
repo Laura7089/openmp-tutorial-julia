@@ -27,3 +27,4 @@ heat_map_target
 heat_data_reg
 heat_target_opt
 
+.env

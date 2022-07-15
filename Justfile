@@ -11,7 +11,7 @@ VIKING_BENCH_DIR := "~/scratch/julia_benches"
 VIKING_BENCH_RESULTS_DIR := `mktemp -p /tmp -du juliabenchXXX`
 
 # Default viking run configuration
-VIKING_MODULE := "compiler/GCC/11.2.0"
+VIKING_MODULE := "lang/Julia/1.7.1-linux-x86_64"
 VIKING_PARTITION := "teach"
 VIKING_SLURM_ARGS := ""
 VIKING_JOB_TIME := "00:10:00"
@@ -32,9 +32,9 @@ interactive:
         fa() = format("."); \
     ')
 
-# Run a default entrypoint
+# Run a default entrypoint, then again to avoid compilation time
 run demo="heat.jl":
-    julia <(echo 'import Pkg; include("{{ demo }}"); main()')
+    julia <(echo 'include("{{ absolute_path(demo) }}"); main(); main()')
 
 # Run JuliaFormatter on the project, or a path
 format path=".":
@@ -94,23 +94,24 @@ viking_run demo *args="":
     mkdir -p "{{ VIKING_UPSTREAM_NAME }}"
     cd "{{ VIKING_UPSTREAM_NAME }}" && rm -rf "*" ".*"
     cp -rv "{{ demo }}" "{{ VIKING_UPSTREAM_NAME }}"
+    echo 'include("/users/{{ YORK_USER }}/scratch/{{ file_name(VIKING_UPSTREAM_NAME) }}/{{ file_name(demo) }}"); main(); main()' \
+        > "{{ VIKING_UPSTREAM_NAME }}/run.jl"
     jinja2 \
-        -o "{{ VIKING_UPSTREAM_NAME }}/run_{{ demo }}.job" "{{ VIKING_TEMPLATE }}" \
+        -o "{{ VIKING_UPSTREAM_NAME }}/run_{{ file_name(demo) }}.job" \
+        "{{ VIKING_TEMPLATE }}" \
         -D 'ntasks={{ VIKING_NUM_TASKS }}' \
         -D 'module={{ VIKING_MODULE }}' \
         -D 'partition={{ VIKING_PARTITION }}' \
         -D 'time_allot={{ VIKING_JOB_TIME }}' \
         -D 'cpus_pt={{ VIKING_CPUS_PT }}' \
         -D 'extra_opts={{ VIKING_SLURM_ARGS }}' \
-        -D 'mem={{ VIKING_MEMORY }}' \
-        -D build_cmd='(cd {{ demo }} && make)' \
-        -D run_cmd='(cd {{ demo }} && just {{ demo }} {{ args }})'
+        -D 'mem={{ VIKING_MEMORY }}'
     # cat "{{ VIKING_UPSTREAM_NAME }}/run_{{ demo }}.job"
-    chmod +x "{{ VIKING_UPSTREAM_NAME }}/run_{{ demo }}.job"
+    chmod +x "{{ VIKING_UPSTREAM_NAME }}/run_{{ file_name(demo) }}.job"
     just _viking_rsync_to "{{ VIKING_UPSTREAM_NAME }}" "scratch"
     just viking_ssh \
         'cd ~/scratch/$(basename {{ VIKING_UPSTREAM_NAME }}) && \
-        sbatch ./run_{{ demo }}.job'
+        sbatch ./run_{{ file_name(demo) }}.job'
     @printf "\n==================================================\nViking job run in directory $(basename {{ VIKING_UPSTREAM_NAME }})\n\n"
 
 # TODO: adapt me
@@ -158,41 +159,6 @@ viking_bench_run jump="500" max="5000" demos=DEMOS omp_cpus="20" mpi_tasks="9" m
                     VIKING_JOB_TIME={{ VIKING_JOB_TIME }}
                     viking_run original -x $size -y $size --noio }
         end
-    end
-
-# Retrieve slurm logs from `viking_bench_run`
-viking_bench_retrieve jump="500" max="5000" demos=DEMOS:
-    #!/bin/env hush
-    let cwd = std.cwd()
-    for size in std.range({{ jump }}, {{ max }}, {{ jump }}) do
-        for demo in std.iter(std.split("{{ demos }}", " ")) do
-            {
-                mkdir -pv "{{ VIKING_BENCH_RESULTS_DIR }}/${demo}_${size}";
-                just _viking_rsync_from "scratch/hipc_${demo}_${size}/slurm-*"
-                    "{{ VIKING_BENCH_RESULTS_DIR }}/${demo}_${size}";
-                cd "{{ VIKING_BENCH_RESULTS_DIR }}/${demo}_${size}";
-                nomino -pw -r 'slurm-[0-9]+\\.out' 'slurm.out';
-                cd $cwd;
-            }
-        end
-    end
-    std.print("========================================\nResults saved to {{ VIKING_BENCH_RESULTS_DIR }}\n")
-
-# Run the analysis python script on local viking bench output
-viking_bench_analyse_existing directory outdir=`mktemp -p /tmp -d hipcanalysisXXX`:
-    ./vanalyse.py "{{ directory }}" "{{ outdir }}"
-    mkdir -p "{{ join(outdir, "slurm_logs") }}"
-    find "{{ directory }}" -type d -exec cp -rv {} "{{ join(outdir, "slurm_logs") }}" \;
-
-# Run a full benchmark on viking, start to finish, with analysis
-viking_bench_full jump="500" max="5000" demos=DEMOS omp_cpus="20" mpi_tasks="9" mpi_dims="-X 3 -Y 3" poll_time="30": (viking_bench_run jump max demos omp_cpus mpi_tasks mpi_dims) && (viking_bench_retrieve jump max demos) (viking_bench_analyse_existing VIKING_BENCH_RESULTS_DIR)
-    #!/bin/env hush
-    let queue = ${ just viking_queue }.stdout
-    while std.len(std.split(queue, "\n")) != 1 do
-        std.print(queue)
-        std.print("Queue not empty, sleeping for {{ poll_time }} seconds...")
-        { sleep 60 }
-        queue = ${ just viking_queue }.stdout
     end
 
 # Cancel all viking jobs
