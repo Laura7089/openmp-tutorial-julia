@@ -46,7 +46,7 @@ function main(n = 1000, nsteps = 10, α = 0.1, δx = LENGTH / (n + 1), δt = 0.5
         @warn "Stability: unstable" r
     end
 
-    u = initial_value((n, n), δx)
+    u = initial_value((n, n), δx) |> CuArray
     u_tmp = Array{Float64}(undef, (n, n))
 
     # Run through timesteps under the explicit scheme
@@ -72,7 +72,7 @@ end
 Sets the mesh to an initial value, determined by the MMS scheme
 """
 function initial_value((x, y), δx)
-    u = CUDA.zeros((x, y))
+    u = zeros((x, y))
     for (i, j) in Iterators.product(axes(u[1:end-1, 1:end-1])...)
         u[i+1, j+1] = sin(pi * δx * i / LENGTH) * sin(pi * δx * j / LENGTH)
     end
