@@ -12,7 +12,7 @@ VIKING_BENCH_RESULTS_DIR := `mktemp -p /tmp -du juliabenchXXX`
 
 # Default viking run configuration
 VIKING_MODULE := "lang/Julia/1.7.1-linux-x86_64"
-VIKING_PARTITION := "teach"
+VIKING_PARTITION := "gpu"
 VIKING_SLURM_ARGS := ""
 VIKING_JOB_TIME := "00:10:00"
 VIKING_MEMORY := "4gb"
@@ -86,11 +86,11 @@ _viking_rsync_from src dest args="":
 
 # Call `ssh` for viking
 viking_ssh cmd="":
-    sshpass -e ssh "{{ YORK_USER }}@viking.york.ac.uk" '{{ cmd }}'
+    ssh "{{ YORK_USER }}@viking.york.ac.uk" -t '{{ cmd }}'
 alias vs := viking_ssh
 
-# Run a demo as a batch job on viking
-viking_run demo *args="":
+# Upload a demo and supporting files to viking
+viking_upload demo *args="":
     mkdir -p "{{ VIKING_UPSTREAM_NAME }}"
     cd "{{ VIKING_UPSTREAM_NAME }}" && rm -rf "*" ".*"
     cp -rv "{{ demo }}" "{{ VIKING_UPSTREAM_NAME }}"
@@ -104,62 +104,33 @@ viking_run demo *args="":
         -D 'partition={{ VIKING_PARTITION }}' \
         -D 'time_allot={{ VIKING_JOB_TIME }}' \
         -D 'cpus_pt={{ VIKING_CPUS_PT }}' \
-        -D 'extra_opts={{ VIKING_SLURM_ARGS }}' \
+        -D 'extra_opts=#SBATCH --gres=gpu:1' \
         -D 'mem={{ VIKING_MEMORY }}'
     # cat "{{ VIKING_UPSTREAM_NAME }}/run_{{ demo }}.job"
     chmod +x "{{ VIKING_UPSTREAM_NAME }}/run_{{ file_name(demo) }}.job"
     just _viking_rsync_to "{{ VIKING_UPSTREAM_NAME }}" "scratch"
+
+# Run a demo as a batch job on viking
+viking_run demo *args="":
+    just "VIKING_UPSTREAM_NAME={{ VIKING_UPSTREAM_NAME}}" viking_upload {{ demo }} {{ args }}
     just viking_ssh \
         'cd ~/scratch/$(basename {{ VIKING_UPSTREAM_NAME }}) && \
         sbatch ./run_{{ file_name(demo) }}.job'
     @printf "\n==================================================\nViking job run in directory $(basename {{ VIKING_UPSTREAM_NAME }})\n\n"
+alias vr := viking_run
 
-# TODO: adapt me
-# Helper for viking_run for openmp
-# viking_run_openmp cpus="20" *args="":
-#     just \
-#         'VIKING_UPSTREAM_NAME={{ VIKING_UPSTREAM_NAME }}' \
-#         VIKING_JOB_TIME={{ VIKING_JOB_TIME }} \
-#         VIKING_CPUS_PT={{ cpus }} \
-#         MAXWELL_CMD="OMP_NUM_THREADS={{ cpus }} {{ MAXWELL_CMD }}" \
-#         viking_run "openmp" {{ args }}
-
-# Helper for viking_run for cuda
-viking_run_cuda *args="":
-    just \
-        'VIKING_UPSTREAM_NAME={{ VIKING_UPSTREAM_NAME }}' \
-        VIKING_PARTITION=gpu \
-        VIKING_SLURM_ARGS='#SBATCH --gres=gpu:1' \
-        VIKING_JOB_TIME={{ VIKING_JOB_TIME }} \
-        VIKING_MODULE=system/CUDA/11.1.1-GCC-10.2.0 \
-        VIKING_CPUS_PT=1 \
-        viking_run "cuda" {{ args }}
-
-# Helper for viking_run for mpi
-# viking_run_mpi tasks="9" *args="":
-#     just \
-#         'VIKING_UPSTREAM_NAME={{ VIKING_UPSTREAM_NAME }}' \
-#         MAXWELL_CMD="mpirun -n {{ tasks }}" \
-#         VIKING_JOB_TIME={{ VIKING_JOB_TIME }} \
-#         VIKING_MODULE=mpi/OpenMPI/4.1.1-GCC-11.2.0 \
-#         viking_run "mpi" {{ tasks }} "1" {{ args }}
+# Get an interactive `srun` shell on viking
+viking_interactive bin="/bin/bash" *args="":
+    just viking_ssh 'srun \
+        --ntasks={{ VIKING_NUM_TASKS }} \
+        --time={{ VIKING_JOB_TIME }} \
+        --pty \
+        {{ bin }} {{ args }}'
+alias vi := viking_interactive
 
 # View the viking job queue
 viking_queue: (viking_ssh "squeue -u " + YORK_USER)
 alias vq := viking_queue
-
-# TODO: adapt for Julia
-# Run all benches
-viking_bench_run jump="500" max="5000" demos=DEMOS omp_cpus="20" mpi_tasks="9" mpi_dims="-X 3 -Y 3":
-    #!/bin/env hush
-    let demo = std.split("{{ demos }}", " ")
-    for size in std.range({{ jump }}, {{ max }}, {{ jump }}) do
-        if std.contains(demos, "original") then
-            { just VIKING_UPSTREAM_NAME=/tmp/julia_original_${size}
-                    VIKING_JOB_TIME={{ VIKING_JOB_TIME }}
-                    viking_run original -x $size -y $size --noio }
-        end
-    end
 
 # Cancel all viking jobs
 viking_cancel: && (viking_ssh "scancel -u " + YORK_USER)
@@ -167,8 +138,7 @@ viking_cancel: && (viking_ssh "scancel -u " + YORK_USER)
     set -euo pipefail
 
     read -p "Are you sure you want to cancel all viking jobs for {{ YORK_USER }}? [y/N]" -n 1 -r
-    if [[ ! $REPLY =~ ^[Yy]$ ]]
-    then
+    if [[ ! $REPLY =~ ^[Yy]$ ]]; then
         echo
         echo "No confirmation from user, exiting..."
         exit 1
@@ -177,4 +147,4 @@ viking_cancel: && (viking_ssh "scancel -u " + YORK_USER)
     echo "Cancelling all viking jobs for {{ YORK_USER }}..."
 
 # Cancel viking jobs and clean up
-viking_clean: (viking_cancel) (viking_ssh "rm -rfv ~/scratch/hipc*")
+viking_clean: (viking_cancel) (viking_ssh "rm -rfv ~/scratch/julia*")
