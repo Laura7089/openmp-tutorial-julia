@@ -1,3 +1,4 @@
+#!/usr/bin/env julia
 #
 #  PROGRAM: jacobi Solver
 #
@@ -34,13 +35,10 @@
 using Dates
 import LinearAlgebra: diagind, I
 
-const TOLERANCE = 0.001
-const DEF_SIZE = 1000
-const MAX_ITERS = 100000
-const LARGE = 1000000.0
-
 # Maximum allowable non-diag values
 const MAX_VAR = 0.25
+const TOLERANCE = 0.001
+
 """
 Create a random, diagonally dominant matrix.  For
 a diagonally dominant matrix, the diagonal element
@@ -56,9 +54,9 @@ Jacobi iterative solver
 Mutates `xnew` and `xold`
 """
 function jacobisolve!(xnew, xold, A, b)
-    conv = LARGE
+    conv = typemax(Int)
     iters = 0
-    while (conv > TOLERANCE) && (iters < MAX_ITERS)
+    while (conv > TOLERANCE) && (iters < 100_000)
         iters += 1
         for i = 1:length(xnew)
             @inbounds xnew[i] = 0.0
@@ -79,7 +77,7 @@ function jacobisolve!(xnew, xold, A, b)
     @info "Jacobi solve done" conv iters
 end
 
-function jacsolv(ndim = DEF_SIZE)
+function jacsolv(ndim = 1000)
     A = nearident(ndim)
     @debug A
 
@@ -101,4 +99,8 @@ function jacsolv(ndim = DEF_SIZE)
     if err > TOLERANCE
         @warn "final solution error > $(TOLERANCE)" err
     end
+end
+
+if abspath(PROGRAM_FILE) == @__FILE__
+    jacsolv()
 end

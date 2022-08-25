@@ -23,14 +23,6 @@ LAB_DEST := "julia_source"
 YORK_USER := env_var("YORK_USER")
 export SSHPASS := env_var("YORK_PASS")
 
-# Get an interactive shell with the package imported
-interactive:
-    julia -i ./.interactive.jl
-
-# Run a default entrypoint, then again to avoid compilation time
-run demo="heat.jl":
-    julia <(echo 'include("{{ absolute_path(demo) }}"); main(); main()')
-
 # Run JuliaFormatter on the project, or a path
 format path=".":
     julia <(echo 'using JuliaFormatter; format("{{ path }}")')
@@ -56,7 +48,7 @@ lab_run demo *args="": (lab_upload demo)
         'cd "{{ join(LAB_DEST, demo) }}" \
         && make clean \
         && make \
-        && just {{ demo }} {{ args }}'
+        && julia "{{ demo }}" {{ args }}
 
 lab_script *args="":
     #!/bin/bash
@@ -88,9 +80,7 @@ alias vs := viking_ssh
 viking_upload demo *args="":
     mkdir -p "{{ VIKING_UPSTREAM_NAME }}"
     cd "{{ VIKING_UPSTREAM_NAME }}" && rm -rf "*" ".*"
-    cp -rv "{{ demo }}" "{{ VIKING_UPSTREAM_NAME }}"
-    echo 'include("/users/{{ YORK_USER }}/scratch/{{ file_name(VIKING_UPSTREAM_NAME) }}/{{ file_name(demo) }}"); main(); main()' \
-        > "{{ VIKING_UPSTREAM_NAME }}/run.jl"
+    cp -rv "{{ demo }}" "{{ VIKING_UPSTREAM_NAME }}/run.jl"
     jinja2 \
         -o "{{ VIKING_UPSTREAM_NAME }}/run_{{ file_name(demo) }}.job" \
         "{{ VIKING_TEMPLATE }}" \
@@ -106,21 +96,12 @@ viking_upload demo *args="":
     just _viking_rsync_to "{{ VIKING_UPSTREAM_NAME }}" "scratch"
 
 # Run a demo as a batch job on viking
-viking_run demo *args="":
-    just "VIKING_UPSTREAM_NAME={{ VIKING_UPSTREAM_NAME}}" viking_upload {{ demo }} {{ args }}
-    just viking_ssh \
-        'cd ~/scratch/$(basename {{ VIKING_UPSTREAM_NAME }}) && \
-        sbatch ./run_{{ file_name(demo) }}.job'
+viking_run demo *args="": (viking_upload demo args) (viking_ssh "cd ~/scratch/" + file_name(VIKING_UPSTREAM_NAME) + "sbatch ./run_" + file_name(demo) + ".job")
     @printf "\n==================================================\nViking job run in directory $(basename {{ VIKING_UPSTREAM_NAME }})\n\n"
 alias vr := viking_run
 
 # Get an interactive `srun` shell on viking
-viking_interactive bin="/bin/bash" *args="":
-    just viking_ssh 'srun \
-        --ntasks={{ VIKING_NUM_TASKS }} \
-        --time={{ VIKING_JOB_TIME }} \
-        --pty \
-        {{ bin }} {{ args }}'
+viking_interactive bin="/bin/bash" *args="": (viking_ssh "srun --ntasks=" + VIKING_NUM_TASKS + " --time=" + VIKING_JOB_TIME + " --pty " + bin + args)
 alias vi := viking_interactive
 
 # View the viking job queue

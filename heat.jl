@@ -112,3 +112,7 @@ function mask((xₘ, yₘ), t, α, δx)
     M₀[2:xₘ, 2:yₘ] = map(gen, Mₚ)
     return M₀
 end
+
+if abspath(PROGRAM_FILE) == @__FILE__
+    main()
+end

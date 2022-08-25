@@ -24,3 +24,7 @@ function calcpi(n=100000000)
     @info "Finished" pi n
     return pi
 end
+
+if abspath(PROGRAM_FILE) == @__FILE__
+    calcpi()
+end
