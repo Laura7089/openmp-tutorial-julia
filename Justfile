@@ -25,7 +25,7 @@ export SSHPASS := env_var("YORK_PASS")
 
 # Run JuliaFormatter on the project, or a path
 format path=".":
-    julia <(echo 'using JuliaFormatter; format("{{ path }}")')
+    julia -E 'using JuliaFormatter; format("{{ path }}")'
 
 # Clean up run and build artefacts
 clean:
