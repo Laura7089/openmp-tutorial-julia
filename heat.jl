@@ -2,52 +2,74 @@
 #
 # PROGRAM: heat equation solve
 #
-# PURPOSE: This program will explore use of an explicit
-#          finite difference method to solve the heat
-#          equation under a method of manufactured solution (MMS)
-#          scheme. The solution has been set to be a simple
-#          function based on exponentials and trig functions.
-#
-#          A finite difference scheme is used on a 1000x1000 cube.
-#          A total of 0.5 units of time are simulated.
-#
-#          The MMS solution has been adapted from
-#          G.W. Recktenwald (2011). Finite difference approximations
-#          to the Heat Equation. Portland State University.
-#
-#
-# USAGE:   Run with two arguments:
-#          First is the number of cells.
-#          Second is the number of timesteps.
-#
-#          For example, with 100x100 cells and 10 steps:
-#
-#          ./heat 100 10
-#
 #
 # HISTORY: Written by Tom Deakin, Oct 2018
 #          Ported by Laura Demkowicz-Duffy, Jul 2022
-#
 
+"""
+Run with [`Heat.heat()`](@ref).
+See the documentation for that function for more details.
+
+This module supports running with [CUDA.jl](https://cuda.juliagpu.org/stable).
+To enable it, set [`Heat.ARR_MOD`](@ref) to `CUDA`.
+To enable CPU threads, set [`Heat.CPU_THREADS`](@ref) to `true`.
+
+This program will explore use of an explicit finite difference method to solve the heat equation under a method of manufactured solution (MMS)
+scheme.
+The solution has been set to be a simple function based on exponentials and trig functions.
+
+A finite difference scheme is used on a `LENGTHxLENGTH` cube.
+A total of `0.5` units of time are simulated.
+
+The MMS solution has been adapted from:
+G.W. Recktenwald (2011).
+Finite difference approximations to the Heat Equation.
+Portland State University.
+"""
 module Heat
+export heat
 
-export mask, solve!, initialvalue, main
+"""
+Physical size of domain in units.
+"""
+const LENGTH = 1000
+"""
+Julia module used to create arrays with `ARR_MOD.zeros`.
+Intended for use with CUDA.
+
+Defaults to `Base`.
+"""
+const ARR_MOD = Base
+"""
+Whether or not to enable CPU multithreading.
+Defaults to `false`.
+"""
+const CPU_THREADS = false
 
 import LinearAlgebra: norm
-product = Iterators.product
+const product = Iterators.product
+const parmap = if CPU_THREADS
+        import Distributed: pmap
+        pmap
+    else
+        map
+    end
 
-# Physical size of domain
-const LENGTH = 1000
-const ARR_MOD = Base
+import .ARR_MOD
 
-function main(n = 1000, nsteps = 10, α = 0.1, δx = LENGTH / (n + 1), δt = 1 / 2nsteps)
+"""
+    heat([n=1000, ][steps=10, ][α=0.1]; [δx=LENGTH÷(n+1), ][δt=1/2steps, ])
+
+Run the MMS heat equation on a grid of size `n` with `steps` iterations.
+"""
+function heat(n = 1000, steps = 10, α = 0.1; δx = LENGTH / (n + 1), δt = 1 / 2steps)
     # Print message detailing runtime configuration
-    totaltime = δt * nsteps
-    @info "MMS heat equation starting..." (n, n) δx (LENGTH, LENGTH) α nsteps totaltime δt
+    totaltime = δt * steps
+    @info "MMS heat equation starting with params:" (n, n) δx (LENGTH, LENGTH) α steps totaltime δt
 
     # Stability requires that δt/(dx^2) <= 0.5
     r = α * δt / δx^2
-    if (r > 0.5)
+    if r > 0.5
         @warn "Stability: unstable" r
     end
 
@@ -56,20 +78,21 @@ function main(n = 1000, nsteps = 10, α = 0.1, δx = LENGTH / (n + 1), δt = 1 /
 
     # Run through timesteps under the explicit scheme
     B = ARR_MOD.zeros(n, n) # temporary allocation
-    @time for t = 2:nsteps
+    stats = @timed for t = 2:steps
         solve!(u_tmp, B, u, α, δx, δt)
         u, u_tmp = u_tmp, u
     end
+    @info "Main loop finished" stats.time stats.bytes stats.gctime
 
     # Check the L2-norm of the computed solution
     # against the *known* solution from the MMS scheme
-    @time begin
-        themask = mask(size(u), δt * nsteps, α, δx)
+    stats = @timed begin
+        themask = mask(size(u), δt * steps, α, δx)
         l2norm = norm(u - themask)
     end
 
     # Print results
-    @info "Done" l2norm
+    @info "L2-Norm calculation finished" l2norm stats.time stats.bytes stats.gctime
 end
 
 
@@ -95,7 +118,7 @@ function solve!(uₜ::AbstractArray, B::AbstractArray, u::AbstractArray, α, δx
     r₂ = 1 - 4r
 
     (xₘ, yₘ) = size(u)
-    B[2:end-1, 2:end-1] .= map(product(2:xₘ-1, 2:yₘ-1)) do (i, j)
+    B[2:end-1, 2:end-1] .= parmap(product(2:xₘ-1, 2:yₘ-1)) do (i, j)
         u[i+1, j] + u[i, j-1] + u[i-1, j] + u[i, j+1]
     end
 
@@ -121,5 +144,5 @@ end
 end
 
 if abspath(PROGRAM_FILE) == @__FILE__
-    Heat.main()
+    Heat.heat()
 end

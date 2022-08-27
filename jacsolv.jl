@@ -2,49 +2,46 @@
 #
 #  PROGRAM: jacobi Solver
 #
-#  PURPOSE: This program will explore use of a jacobi iterative
-#           method to solve a system of linear equations (Ax= b).
-#
-#           Here is the basic idea behind the method.   Rewrite
-#           the matrix A as a Lower Triangular (L), upper triangular
-#           (U) and diagonal matrix (D)
-#
-#                Ax = (L + D + U)x = b
-#
-#            Carry out the multiplication and rearrange:
-#
-#                Dx = b - (L+U)x  -->   x = (b-(L+U)x)/D
-#
-#           We can do this iteratively
-#
-#                x_new = (b-(L+U)x_old)/D
-#
-#  USAGE:   Run wtihout arguments to use default SIZE.
-#
-#              julia ./jac_solv.jl
-#
-#           Run with a single argument for the order of the A
-#           matrix ... for example
-#
-#              julia ./jac_solv.jl 2500
-#
 #  HISTORY: Written by Tim Mattson, Oct 2015
 #           Ported to Julia by Laura Demkowicz-Duffy, July 2022
-#
+
+"""
+Call with [`JavSolv.jacsolv()`](@ref).
+
+This program will explore use of a jacobi iterative method to solve a system of linear equations ``Ax = b``.
+
+Here is the basic idea behind the method:
+
+1. Rewrite the matrix A as a Lower Triangular ``L``, upper triangular ``U`` and diagonal matrix ``D``:
+
+    ``Ax = (L + D + U)x = b``
+
+1. Carry out the multiplication and rearrange:
+
+    ``Dx = b - (L+U)x``
+
+    ``x = (b-(L+U)x)/D``
+
+We can do this iteratively:
+
+``x\\_{new} = (b-(L+U)x\\_{old})/D``
+"""
+module JacSolv
 
 using Dates
 import LinearAlgebra: diagind, I
 
-# Maximum allowable non-diag values
+"""
+Maximum allowable non-diag values
+"""
 const MAX_VAR = 0.25
 const TOLERANCE = 0.001
 
 """
-Create a random, diagonally dominant matrix.  For
-a diagonally dominant matrix, the diagonal element
-of each row is great than the sum of the other
-elements in the row.  Then scale the matrix so the
-result is near the identiy matrix.
+Create a random, diagonally dominant matrix.
+
+For a diagonally dominant matrix, the diagonal element of each row is great than the sum of the other elements in the row.
+Then scale the matrix so the result is near the identity matrix.
 """
 nearident(n = 5) = (rand(Float64, (n, n)) .* MAX_VAR) + I
 
@@ -77,6 +74,11 @@ function jacobisolve!(xnew, xold, A, b)
     @info "Jacobi solve done" conv iters
 end
 
+"""
+    jacsolv(ndim = 1000)
+
+`ndim` is the order of the `A` matrix.
+"""
 function jacsolv(ndim = 1000)
     A = nearident(ndim)
     @debug A
@@ -101,6 +103,8 @@ function jacsolv(ndim = 1000)
     end
 end
 
+end
+
 if abspath(PROGRAM_FILE) == @__FILE__
-    jacsolv()
+    JacSolv.jacsolv()
 end
