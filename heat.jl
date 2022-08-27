@@ -29,11 +29,18 @@
 #          Ported by Laura Demkowicz-Duffy, Jul 2022
 #
 
+module Heat
+
+export mask, solve!, initialvalue, main
+
 import LinearAlgebra: norm
+product = Iterators.product
 
+# Physical size of domain
 const LENGTH = 1000
+const ARR_MOD = Base
 
-function main(n = 1000, nsteps = 10, α = 0.1, δx = LENGTH / (n + 1), δt = 0.5 / nsteps)
+function main(n = 1000, nsteps = 10, α = 0.1, δx = LENGTH / (n + 1), δt = 1 / 2nsteps)
     # Print message detailing runtime configuration
     totaltime = δt * nsteps
     @info "MMS heat equation starting..." (n, n) δx (LENGTH, LENGTH) α nsteps totaltime δt
@@ -44,11 +51,11 @@ function main(n = 1000, nsteps = 10, α = 0.1, δx = LENGTH / (n + 1), δt = 0.5
         @warn "Stability: unstable" r
     end
 
-    u = initial_value((n, n), δx)
+    u = initialvalue((n, n), δx)
     u_tmp = Array{Float64}(undef, (n, n))
 
     # Run through timesteps under the explicit scheme
-    B = zeros(n, n) # temporary allocation
+    B = ARR_MOD.zeros(n, n) # temporary allocation
     @time for t = 2:nsteps
         solve!(u_tmp, B, u, α, δx, δt)
         u, u_tmp = u_tmp, u
@@ -58,7 +65,7 @@ function main(n = 1000, nsteps = 10, α = 0.1, δx = LENGTH / (n + 1), δt = 0.5
     # against the *known* solution from the MMS scheme
     @time begin
         themask = mask(size(u), δt * nsteps, α, δx)
-        l2norm = norm(u .- themask)
+        l2norm = norm(u - themask)
     end
 
     # Print results
@@ -69,10 +76,11 @@ end
 """
 Sets the mesh to an initial value, determined by the MMS scheme
 """
-function initial_value((x, y), δx)
-    u = zeros((x, y))
-    for (i, j) in Iterators.product(axes(u[1:end-1, 1:end-1])...)
-        u[i+1, j+1] = sin(pi * δx * i / LENGTH) * sin(pi * δx * j / LENGTH)
+function initialvalue(size, δx)
+    u = ARR_MOD.zeros(size)
+    mult = pi * δx / LENGTH
+    u[2:end, 2:end] = map(product(1:size[1]-1, 1:size[2]-1)) do (i, j)
+        sin(mult * i) * sin(mult * j)
     end
     return u
 end
@@ -87,12 +95,11 @@ function solve!(uₜ::AbstractArray, B::AbstractArray, u::AbstractArray, α, δx
     r₂ = 1 - 4r
 
     (xₘ, yₘ) = size(u)
-    B[2:end-1, 2:end-1] .= (
-        u[i+1, j] + u[i, j-1] + u[i-1, j] + u[i, j+1] for
-        (i, j) in Iterators.product(2:xₘ-1, 2:yₘ-1)
-    )
+    B[2:end-1, 2:end-1] .= map(product(2:xₘ-1, 2:yₘ-1)) do (i, j)
+        u[i+1, j] + u[i, j-1] + u[i-1, j] + u[i, j+1]
+    end
 
-    @. uₜ[:, :] = r₂ * u + r * B
+    @. uₜ = r₂ * u + r * B
 end
 
 
@@ -103,16 +110,16 @@ function mask((xₘ, yₘ), t, α, δx)
     modi = pi * δx / LENGTH
     xs = (1:xₘ-1) .* modi
     ys = (1:yₘ-1) .* modi
-    Mₚ = Iterators.product(xs, ys)
-    M₀ = zeros(xₘ, yₘ)
+    M = ARR_MOD.zeros(xₘ, yₘ)
 
-    multiplier = exp(-2α * pi^2 * t * LENGTH^-2)
-    gen((x, y)) = multiplier * sin(x) * sin(y)
+    M[2:end, 2:end] .= map(product(xs, ys)) do (x, y)
+        exp(-2α * pi^2 * t / LENGTH^2) * sin(x) * sin(y)
+    end
+    return M
+end
 
-    M₀[2:xₘ, 2:yₘ] = map(gen, Mₚ)
-    return M₀
 end
 
 if abspath(PROGRAM_FILE) == @__FILE__
-    main()
+    Heat.main()
 end
