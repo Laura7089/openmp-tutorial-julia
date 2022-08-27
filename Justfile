@@ -1,6 +1,7 @@
 #!/usr/bin/env -S just --justfile
 set positional-arguments
 set dotenv-load
+set windows-shell := ["pwsh.exe", "-NoLogo", "-Command"]
 
 DEMOS := "heat.jl pi.jl heat.cuda.jl jacsolv.jl"
 
